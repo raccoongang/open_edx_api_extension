@@ -27,24 +27,26 @@ class CourseUserResult(CourseViewMixin, RetrieveAPIView):
 
         * realname: The realname of the user.
 
-        * grade_summary: A collection that includes:
+        * grade_summary: Contains student grade details:
 
-            * section_breakdown: A collection that includes:
-                * category: Assignment type name.
-                * percent: .
-                * detail: .
-                * label: Abbreviation.
+            * section_breakdown: This is a list of dictionaries which provide details on sections that were graded:
+                * category: A string identifying the category.
+                * percent: A float percentage for the section.
+                * detail: A string explanation of the score. E.g. "Homework 1 - Ohms Law - 83% (5/6)".
+                * label: A short string identifying the section. E.g. "HW  3".
 
-            * grade: .
+            * grade:  A final letter grade.
 
-            * totaled_scores: .
+            * totaled_scores: totaled scores, which is passed to the grader.
 
-            * percent: .
+            * percent: Contains a float value, which is the final percentage score for the student.
 
-            * grade_breakdown: A collection that includes:
-                * category: Assignment type name.
-                * percent: .
-                * detail:
+            * grade_breakdown: This is a list of dictionaries which provide details on the contributions
+                               of the final percentage grade. This is a higher level breakdown, for when the grade is
+                               constructed of a few very large sections (such as Homeworks, Labs, a Midterm, and a Final):
+                * category: A string identifying the category.
+                * percent: A float percentage in the breakdown. All percents should add up to the final percentage.
+                * detail: A string explanation of this breakdown. E.g. "Homework - 10% of a possible 15%".
     """
 
     @CourseViewMixin.course_check
