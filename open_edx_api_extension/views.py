@@ -8,6 +8,44 @@ from student.models import CourseEnrollment
 
 
 class CourseUserResult(CourseViewMixin, RetrieveAPIView):
+    """
+    **Use Case**
+
+        Get result user for a specific course.
+
+    **Example Request**:
+
+        GET api/course_user_result/courses/{course_id}/{username}/
+
+    **Response Values**
+
+        * id: The unique identifier for the user.
+
+        * username: The username of the user.
+
+        * email: The email of the user.
+
+        * realname: The realname of the user.
+
+        * grade_summary: A collection that includes:
+
+            * section_breakdown: A collection that includes:
+                * category: Assignment type name.
+                * percent: .
+                * detail: .
+                * label: Abbreviation.
+
+            * grade: .
+
+            * totaled_scores: .
+
+            * percent: .
+
+            * grade_breakdown: A collection that includes:
+                * category: Assignment type name.
+                * percent: .
+                * detail:
+    """
 
     @CourseViewMixin.course_check
     def get(self, request, **kwargs):
