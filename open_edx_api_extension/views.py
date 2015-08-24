@@ -10,6 +10,7 @@ from rest_framework.generics import ListAPIView
 from course_structure_api.v0 import serializers
 from opaque_keys.edx.keys import CourseKey
 from xmodule.modulestore.django import modulestore
+from openedx.core.lib.api.permissions import ApiKeyHeaderPermissionIsAuthenticated
 from openedx.core.lib.api.authentication import (SessionAuthenticationAllowInactiveUser,
     OAuth2AuthenticationAllowInactiveUser
 )
