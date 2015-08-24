@@ -2,8 +2,10 @@
 
 API extension for Open edX 
 
-Installation
+Installation:
+```bash
 pip install -e git+https://github.com/raccoongang/open_edx_api_extension.git#egg=open_edx_api_extension
+```
 
 Add in file lms/envs/common.py
 ```python
@@ -21,3 +23,23 @@ urlpatterns = (
     url(r'^api/extended/', include('open_edx_api_extension.urls'), namespace='api_extension'),
 )
 ```
+
+## There are two API endpoints:
+
+### Course list
+
+/api/extended/courses/
+
+NOTE: For use it be sure you set EDX_API_KEY in Open edX LMS environment settings
+
+Example:
+
+```bash
+ curl -X GET http://<your.lms.domain>/api/extended/courses/?format=json -H 'X-Edx-Api-Key: edx-api-key'
+```
+
+### Course User Results
+
+/api/extended/courses/{course_id}/{username}/
+
+This endpoint uses standard oauth access.

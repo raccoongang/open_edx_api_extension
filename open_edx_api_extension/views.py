@@ -22,7 +22,7 @@ class CourseUserResult(CourseViewMixin, RetrieveAPIView):
 
     **Example Request**:
 
-        GET api/course_user_result/courses/{course_id}/{username}/
+        GET /api/extended/courses/{course_id}/{username}/
 
     **Response Values**
 
@@ -85,7 +85,7 @@ class CourseList(ListAPIView):
         The list can be filtered by course_id.
         Each page in the list can contain up to 10 courses.
     **Example Requests**
-          GET /api/course_structure/v0/courses/
+          GET /api/extended/courses/
     **Response Values**
         * count: The number of courses in the edX platform.
         * next: The URI to the next page of courses.
