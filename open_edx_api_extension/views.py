@@ -1,5 +1,8 @@
+from django.utils.decorators import method_decorator
+
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
+from rest_framework import status
 
 from instructor.offline_gradecalc import student_grades
 from course_structure_api.v0.views import CourseViewMixin
@@ -9,11 +12,16 @@ from openedx.core.lib.api.serializers import PaginationSerializer
 from rest_framework.generics import ListAPIView
 from course_structure_api.v0 import serializers
 from opaque_keys.edx.keys import CourseKey
+from opaque_keys import InvalidKeyError
 from xmodule.modulestore.django import modulestore
 from openedx.core.lib.api.permissions import ApiKeyHeaderPermissionIsAuthenticated
 from openedx.core.lib.api.authentication import (SessionAuthenticationAllowInactiveUser,
     OAuth2AuthenticationAllowInactiveUser
 )
+from enrollment.views import EnrollmentListView
+from .data import get_course_enrollments
+from enrollment.errors import CourseEnrollmentError
+from cors_csrf.decorators import ensure_csrf_cookie_cross_domain
 
 class CourseUserResult(CourseViewMixin, RetrieveAPIView):
     """
@@ -134,3 +142,31 @@ class CourseList(ListAPIView):
 
         # Sort the results in a predictable manner.
         return sorted(results, key=lambda course: unicode(course.id))
+
+class SSOEnrollmentListView(EnrollmentListView):
+    @method_decorator(ensure_csrf_cookie_cross_domain)
+    def get(self, request):
+        """Gets a list of all course enrollments for the currently logged in user."""
+        username = request.GET.get('user', request.user.is_staff and None or request.user.username)
+        try:
+            course_key = CourseKey.from_string(request.GET.get('course_run'))
+        except InvalidKeyError:
+            course_key = None
+	
+        if (not request.user.is_staff and request.user.username != username) and not self.has_api_key_permissions(request):
+            # Return a 404 instead of a 403 (Unauthorized). If one user is looking up
+            # other users, do not let them deduce the existence of an enrollment.
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        try:
+            if course_key:
+                return Response(get_course_enrollments(username, course_id=course_key))
+            return Response(get_course_enrollments(username))
+        except CourseEnrollmentError:
+            return Response(
+                status=status.HTTP_400_BAD_REQUEST,
+                data={
+                    "message": (
+                        u"An error occurred while retrieving enrollments for user '{username}'"
+                    ).format(username=username)
+                }
+            )
