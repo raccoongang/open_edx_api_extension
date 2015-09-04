@@ -3,7 +3,8 @@ from enrollment.serializers import CourseEnrollmentSerializer
 
 
 def get_course_enrollments(user_id=None, **kwargs):
-    """Retrieve a list representing all aggregated data for a user's course enrollments.
+    """
+    Retrieve a list representing all aggregated data for a user's course enrollments.
     Construct a representation of all course enrollment data for a specific user.
     Args:
         user_id (str): The name of the user to retrieve course enrollment information for.

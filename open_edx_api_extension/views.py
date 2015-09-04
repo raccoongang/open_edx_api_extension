@@ -23,6 +23,7 @@ from .data import get_course_enrollments
 from enrollment.errors import CourseEnrollmentError
 from cors_csrf.decorators import ensure_csrf_cookie_cross_domain
 
+
 class CourseUserResult(CourseViewMixin, RetrieveAPIView):
     """
     **Use Case**
@@ -143,10 +144,24 @@ class CourseList(ListAPIView):
         # Sort the results in a predictable manner.
         return sorted(results, key=lambda course: unicode(course.id))
 
+
 class SSOEnrollmentListView(EnrollmentListView):
+    """
+    Inspired from:
+    common.djangoapps.enrollment.views.EnrollmentListView
+    See base docs in parent class or on the web
+    http://edx-platform-api.readthedocs.org/en/latest/enrollment/enrollment.html#enrollment.views.EnrollmentView
+    """
+
+
     @method_decorator(ensure_csrf_cookie_cross_domain)
     def get(self, request):
-        """Gets a list of all course enrollments for the currently logged in user."""
+        """
+        There is copy-paste from parent class method.
+        Only one difference we use get_course_enrollments() instead api.get_enrollments
+
+        Gets a list of all course enrollments for the currently logged in user.
+        """
         username = request.GET.get('user', request.user.is_staff and None or request.user.username)
         try:
             course_key = CourseKey.from_string(request.GET.get('course_run'))

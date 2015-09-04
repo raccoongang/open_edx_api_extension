@@ -43,3 +43,14 @@ Example:
 /api/extended/courses/{course_id}/{username}/
 
 This endpoint uses standard oauth access.
+
+
+### Enrollments list
+
+/api/extended/enrollment
+
+Get a list of all courses enrollments.
+Used EDX_API_KEY for access to this API
+
+See original documentation for other attributes and usage:
+http://edx-platform-api.readthedocs.org/en/latest/enrollment/enrollment.html#enrollment.views.EnrollmentView
