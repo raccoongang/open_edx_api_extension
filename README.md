@@ -20,7 +20,7 @@ Add in file lms/urls.py
 ```python
 urlpatterns = (
     ...
-    url(r'^api/extended/', include('open_edx_api_extension.urls'), namespace='api_extension'),
+    url(r'^api/extended/', include('open_edx_api_extension.urls', namespace='api_extension')),
 )
 ```
 
