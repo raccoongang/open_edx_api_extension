@@ -72,6 +72,12 @@ class CourseUserResult(CourseViewMixin, RetrieveAPIView):
         enrolled_students = CourseEnrollment.objects.users_enrolled_in(self.course_key).filter(username=username)
         course = courses.get_course(self.course_key)
 
+	if not enrolled_students:
+            return Response({
+                "error_description": "User is not enrolled for the course",
+                "error": "invalid_request"
+            })
+	
         student_info = [
             {
                 'username': student.username,
