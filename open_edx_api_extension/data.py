@@ -13,6 +13,6 @@ def get_course_enrollments(user_id=None, **kwargs):
     """
     qset = CourseEnrollment.objects.filter(is_active=True, **kwargs)
     if user_id is not None:
-        qset.filter(user__username=user_id)
-    qset.order_by('created')
+        qset = qset.filter(user__username=user_id)
+    qset = qset.order_by('created')
     return CourseEnrollmentSerializer(qset).data  # pylint: disable=no-member
