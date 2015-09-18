@@ -1,4 +1,5 @@
 from django.utils.decorators import method_decorator
+from django.http import JsonResponse
 
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
@@ -22,6 +23,21 @@ from enrollment.views import EnrollmentListView
 from .data import get_course_enrollments
 from enrollment.errors import CourseEnrollmentError
 from cors_csrf.decorators import ensure_csrf_cookie_cross_domain
+
+
+def list_libraries(request):
+    """
+    List all accessible libraries
+    """
+    lib_info = [
+        {
+            "display_name": lib.display_name,
+            "library_key": unicode(lib.location.library_key),
+            "org": unicode(lib.location.library_key.org),
+        }
+        for lib in modulestore().get_libraries()
+    ]
+    return JsonResponse(lib_info)
 
 
 class CourseUserResult(CourseViewMixin, RetrieveAPIView):
