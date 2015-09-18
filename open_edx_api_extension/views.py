@@ -1,5 +1,4 @@
 from django.utils.decorators import method_decorator
-from django.http import JsonResponse
 
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.response import Response
