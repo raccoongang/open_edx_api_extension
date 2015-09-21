@@ -24,6 +24,42 @@ from enrollment.errors import CourseEnrollmentError
 from cors_csrf.decorators import ensure_csrf_cookie_cross_domain
 
 
+class LibrariesList(ListAPIView):
+    """
+    **Use Case**
+        Get a paginated list of libraries in the whole edX Platform.
+        The list can be filtered by course_id.
+        Each page in the list can contain up to 10 courses.
+    **Example Requests**
+          GET /api/extended/libraries/
+    **Response Values**
+        * count: The number of courses in the edX platform.
+        * next: The URI to the next page of courses.
+        * previous: The URI to the previous page of courses.
+        * num_pages: The number of pages listing courses.
+        * results:  A list of courses returned. Each collection in the list
+          contains these fields.
+            * id: The unique identifier for the course.
+              "course".
+            * org: The organization specified for the course.
+            * course: The course number.
+    """
+    # Using EDX_API_KEY for access to this api
+    authentication_classes = (SessionAuthenticationAllowInactiveUser, OAuth2AuthenticationAllowInactiveUser)
+    permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
+
+    def list(self, request, *args, **kwargs):
+        lib_info = [
+            {
+                "display_name": lib.display_name,
+                "library_key": unicode(lib.location.library_key),
+                "org": unicode(lib.location.library_key.org),
+            }
+            for lib in modulestore().get_libraries()
+        ]
+        return Response(lib_info)
+
+
 class CourseUserResult(CourseViewMixin, RetrieveAPIView):
     """
     **Use Case**
