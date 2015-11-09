@@ -9,4 +9,5 @@ urlpatterns = [
     url(r'^courses/{}/(?P<username>\w+)/$'.format(settings.COURSE_ID_PATTERN), views.CourseUserResult.as_view()),
     url(r'^enrollment$', views.SSOEnrollmentListView.as_view(), name='courseenrollments'),
     url(r'^libraries/$', views.LibrariesList.as_view()),
+    url(r'^paid_mass_enrollment$', views.PaidMassEnrollment.as_view()),
 ]
