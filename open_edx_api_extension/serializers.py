@@ -1,11 +1,9 @@
 from collections import OrderedDict
-import json
 from rest_framework import serializers
 from rest_framework.fields import SkipField
 from edx_proctoring.api import get_all_exams_for_course
 
 from course_structure_api.v0.serializers import CourseSerializer
-
 
 
 class ExamSerializerField(serializers.Field):
@@ -45,10 +43,6 @@ class CourseWithExamsSerializer(CourseSerializer):
         fields = [field for field in self.fields.values() if
                   not field.write_only]
         exams = get_all_exams_for_course(course_id=instance.id)
-        import pprint
-        pp = pprint.PrettyPrinter(indent=5)
-        pp.pprint(exams)
-        print exams
         for field in fields:
             try:
                 attribute = field.get_attribute(instance)

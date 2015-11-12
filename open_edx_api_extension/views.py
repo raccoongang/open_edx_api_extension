@@ -24,7 +24,7 @@ from openedx.core.lib.api.authentication import (
     OAuth2AuthenticationAllowInactiveUser
     )
 from enrollment.views import EnrollmentListView
-from .data import get_course_enrollments
+from .data import get_course_enrollments, get_user_proctored_exams
 from enrollment.errors import CourseEnrollmentError
 from cors_csrf.decorators import ensure_csrf_cookie_cross_domain
 
@@ -248,5 +248,19 @@ class SSOEnrollmentListView(EnrollmentListView):
                     ).format(username=username)
                 }
             )
+
+
+
+class ProctoredExamsListView(APIView):
+    """
+    Get list of user's course and proctored exams for it
+    """
+    authentication_classes = (SessionAuthenticationAllowInactiveUser,
+                              OAuth2AuthenticationAllowInactiveUser)
+
+    def get(self, request, username):
+        result = get_user_proctored_exams(username, request)
+
+        return Response(data=result)
 
 
