@@ -22,7 +22,7 @@ class ExamSerializerField(serializers.Field):
         """
         result = []
         for exam in exams:
-            if exam['is_proctored'] == self.is_proctored:
+            if exam.get('is_proctored') == self.is_proctored:
                 result.append(exam)
         return result
 
