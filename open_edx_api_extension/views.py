@@ -8,7 +8,7 @@ from instructor.offline_gradecalc import student_grades
 from course_structure_api.v0.views import CourseViewMixin
 from courseware import courses
 from student.models import CourseEnrollment
-# from openedx.core.lib.api.serializers import PaginationSerializer
+from openedx.core.lib.api.serializers import PaginationSerializer
 from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 from course_structure_api.v0 import serializers
@@ -137,6 +137,7 @@ class CourseListMixin(object):
     lookup_field = 'course_id'
     paginate_by = 10
     paginate_by_param = 'page_size'
+    pagination_serializer_class = PaginationSerializer
     serializer_class = serializers.CourseSerializer
     # Using EDX_API_KEY for access to this api
     authentication_classes = (SessionAuthenticationAllowInactiveUser,
