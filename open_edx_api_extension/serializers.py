@@ -1,6 +1,9 @@
 from collections import OrderedDict
 from rest_framework import serializers
-from rest_framework.fields import SkipField
+try:
+    from rest_framework.fields import SkipField
+except ImportError:
+    SkipField = Exception
 from edx_proctoring.api import get_all_exams_for_course
 
 from course_structure_api.v0.serializers import CourseSerializer
