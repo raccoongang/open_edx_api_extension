@@ -18,17 +18,17 @@ class CourseWithExamsSerializer(CourseSerializer):
         self.include_expired = kwargs.pop("include_expired", False)
         super(CourseWithExamsSerializer, self).__init__(*args, **kwargs)
 
-    def get_proctored_exams(self):
-        return self._get_exams(True)
+    def get_proctored_exams(self, course):
+        return self._get_exams(course, True)
 
-    def get_regular_exams(self):
-        return self._get_exams(False)
+    def get_regular_exams(self, course):
+        return self._get_exams(course, False)
 
-    def _get_exams(self, is_proctored):
-        exams = get_all_exams_for_course(course_id=self.course_id)
+    def _get_exams(self, course, is_proctored):
+        exams = get_all_exams_for_course(course_id=course.course_id)
         result = []
         for exam in exams:
-            if exam.get('is_proctored') == self.is_proctored:
+            if exam.get('is_proctored') == is_proctored:
                 result.append(exam)
         return result
 
