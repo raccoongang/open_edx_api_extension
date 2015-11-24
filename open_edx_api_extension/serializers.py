@@ -17,7 +17,8 @@ class ExamSerializerField(serializers.Field):
     def __init__(self, read_only=True, *args, **kwargs):
         if 'is_proctored' in kwargs:
             self.is_proctored = kwargs.pop('is_proctored')
-        return super(ExamSerializerField, self).__init__(read_only=True, *args, **kwargs)
+        self.read_only = True
+        return super(ExamSerializerField, self).__init__(*args, **kwargs)
 
     def to_representation(self, instance, exams):
         """
