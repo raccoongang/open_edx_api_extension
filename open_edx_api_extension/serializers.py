@@ -25,7 +25,7 @@ class CourseWithExamsSerializer(CourseSerializer):
         return self._get_exams(course, False)
 
     def _get_exams(self, course, is_proctored):
-        exams = get_all_exams_for_course(course_id=course.course_id)
+        exams = get_all_exams_for_course(course_id=course.id)
         result = []
         for exam in exams:
             if exam.get('is_proctored') == is_proctored:
