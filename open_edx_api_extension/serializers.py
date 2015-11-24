@@ -31,8 +31,8 @@ class ExamSerializerField(serializers.Field):
 
 
 class CourseWithExamsSerializer(CourseSerializer):
-    proctored_exams = ExamSerializerField(is_proctored=True)
-    regular_exams = ExamSerializerField()
+    proctored_exams = ExamSerializerField(is_proctored=True, read_only=True)
+    regular_exams = ExamSerializerField(read_only=True)
 
     def __init__(self, *args, **kwargs):
         self.include_expired = kwargs.pop("include_expired", False)
