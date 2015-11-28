@@ -160,7 +160,7 @@ class CourseUserResult(CourseViewMixin, RetrieveAPIView):
 
 class CourseListMixin(object):
     lookup_field = 'course_id'
-    paginate_by = 10
+    paginate_by = 10000
     paginate_by_param = 'page_size'
     pagination_serializer_class = PaginationSerializer
     serializer_class = serializers.CourseSerializer
