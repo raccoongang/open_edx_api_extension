@@ -2,7 +2,6 @@ from django.core.urlresolvers import reverse
 from edx_proctoring.api import get_all_exams_for_course
 from student.models import CourseEnrollment
 from enrollment.serializers import CourseEnrollmentSerializer
-from datetime import datetime, timedelta
 
 
 def get_course_enrollments(user_id=None, **kwargs):
@@ -29,11 +28,6 @@ def get_user_proctored_exams(username, request):
         course = enrolment.course
         course_id = str(course.id)
         if course_id not in result:
-            end = course.end
-            if not end:
-                limit = course.time_limit_mins or 0
-                end = (datetime.strptime(course.start, '%Y-%m-%dT%H:%M:%SZ') + timedelta(minutes=limit)).isoformat()
-                end = '{}Z'.format(end)
             result[course_id] = {
                 "id": course_id,
                 "name": course.display_name,
@@ -42,7 +36,7 @@ def get_user_proctored_exams(username, request):
                             kwargs={'course_id': course_id})),
                 "image_url": course.course_image_url,
                 "start": course.start,
-                "end": end,
+                "end": course.end,
                 'exams': []
             }
             exams = get_all_exams_for_course(course_id=course.id)
