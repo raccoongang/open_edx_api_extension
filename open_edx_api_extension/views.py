@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils.decorators import method_decorator
 
 from rest_framework.generics import RetrieveAPIView, ListAPIView
+from django.conf import settings
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -38,6 +39,9 @@ from enrollment.views import ApiKeyPermissionMixIn, EnrollmentCrossDomainSession
 
 from .data import get_course_enrollments
 
+from open_edx_api_extension.serializers import CourseWithExamsSerializer
+from .data import get_course_enrollments, get_user_proctored_exams
+
 log = logging.getLogger(__name__)
 
 
@@ -62,7 +66,8 @@ class LibrariesList(ListAPIView):
             * course: The course number.
     """
     # Using EDX_API_KEY for access to this api
-    authentication_classes = (SessionAuthenticationAllowInactiveUser, OAuth2AuthenticationAllowInactiveUser)
+    authentication_classes = (SessionAuthenticationAllowInactiveUser,
+                              OAuth2AuthenticationAllowInactiveUser)
     permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
 
     def list(self, request, *args, **kwargs):
@@ -73,7 +78,7 @@ class LibrariesList(ListAPIView):
                 "org": unicode(lib.location.library_key.org),
             }
             for lib in modulestore().get_libraries()
-        ]
+            ]
         return Response(lib_info)
 
 
@@ -122,7 +127,8 @@ class CourseUserResult(CourseViewMixin, RetrieveAPIView):
     @CourseViewMixin.course_check
     def get(self, request, **kwargs):
         username = self.kwargs.get('username')
-        enrolled_students = CourseEnrollment.objects.users_enrolled_in(self.course_key).filter(username=username)
+        enrolled_students = CourseEnrollment.objects.users_enrolled_in(
+            self.course_key).filter(username=username)
         course = courses.get_course(self.course_key)
 
         if not enrolled_students:
@@ -140,11 +146,42 @@ class CourseUserResult(CourseViewMixin, RetrieveAPIView):
                 'realname': student.profile.name,
             }
             for student in enrolled_students
-        ]
+            ]
         return Response(student_info)
 
 
-class CourseList(ListAPIView):
+class CourseListMixin(object):
+    lookup_field = 'course_id'
+    paginate_by = 10
+    paginate_by_param = 'page_size'
+    serializer_class = serializers.CourseSerializer
+    # Using EDX_API_KEY for access to this api
+    authentication_classes = (SessionAuthenticationAllowInactiveUser,
+                              OAuth2AuthenticationAllowInactiveUser)
+    permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
+
+    def get_queryset(self):
+        course_ids = self.request.QUERY_PARAMS.get('course_id', None)
+
+        results = []
+        if course_ids:
+            course_ids = course_ids.split(',')
+            for course_id in course_ids:
+                course_key = CourseKey.from_string(course_id)
+                course_descriptor = courses.get_course(course_key)
+                results.append(course_descriptor)
+        else:
+            results = modulestore().get_courses()
+
+        # Ensure only course descriptors are returned.
+        results = (course for course in results if
+                   course.scope_ids.block_type == 'course')
+
+        # Sort the results in a predictable manner.
+        return sorted(results, key=lambda course: unicode(course.id))
+
+
+class CourseList(CourseListMixin, ListAPIView):
     """
     Inspired from:
     lms.djangoapps.course_structure_api.v0.views.CourseList
@@ -175,33 +212,14 @@ class CourseList(ListAPIView):
             * end: The course end date. If course end date is not specified, the
               value is null.
     """
-    lookup_field = 'course_id'
-    paginate_by = 10
-    paginate_by_param = 'page_size'
-    pagination_serializer_class = PaginationSerializer
     serializer_class = serializers.CourseSerializer
-    # Using EDX_API_KEY for access to this api
-    authentication_classes = (SessionAuthenticationAllowInactiveUser, OAuth2AuthenticationAllowInactiveUser)
-    permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
 
-    def get_queryset(self):
-        course_ids = self.request.QUERY_PARAMS.get('course_id', None)
 
-        results = []
-        if course_ids:
-            course_ids = course_ids.split(',')
-            for course_id in course_ids:
-                course_key = CourseKey.from_string(course_id)
-                course_descriptor = courses.get_course(course_key)
-                results.append(course_descriptor)
-        else:
-            results = modulestore().get_courses()
-
-        # Ensure only course descriptors are returned.
-        results = (course for course in results if course.scope_ids.block_type == 'course')
-
-        # Sort the results in a predictable manner.
-        return sorted(results, key=lambda course: unicode(course.id))
+class CourseListWithExams(CourseListMixin, ListAPIView):
+    """
+    Gets a list of courses with proctored exams
+    """
+    serializer_class = CourseWithExamsSerializer
 
 
 class SSOEnrollmentListView(EnrollmentListView):
@@ -220,19 +238,23 @@ class SSOEnrollmentListView(EnrollmentListView):
 
         Gets a list of all course enrollments for the currently logged in user.
         """
-        username = request.GET.get('user', request.user.is_staff and None or request.user.username)
+        username = request.GET.get('user',
+                                   request.user.is_staff and None or request.user.username)
         try:
             course_key = CourseKey.from_string(request.GET.get('course_run'))
         except InvalidKeyError:
             course_key = None
 
-        if (not request.user.is_staff and request.user.username != username) and not self.has_api_key_permissions(request):
+        if (
+            not request.user.is_staff and request.user.username != username) and not self.has_api_key_permissions(
+                request):
             # Return a 404 instead of a 403 (Unauthorized). If one user is looking up
             # other users, do not let them deduce the existence of an enrollment.
             return Response(status=status.HTTP_404_NOT_FOUND)
         try:
             if course_key:
-                return Response(get_course_enrollments(username, course_id=course_key))
+                return Response(
+                    get_course_enrollments(username, course_id=course_key))
             return Response(get_course_enrollments(username))
         except CourseEnrollmentError:
             return Response(
@@ -431,3 +453,16 @@ class PaidMassEnrollment(APIView, ApiKeyPermissionMixIn):
                     ).format(username=current_username, course_id=course_id)
                 }
             )
+
+
+class ProctoredExamsListView(APIView):
+    """
+    Get list of user's course and proctored exams for it
+    """
+    authentication_classes = (SessionAuthenticationAllowInactiveUser,
+                              OAuth2AuthenticationAllowInactiveUser)
+
+    def get(self, request, username):
+        result = get_user_proctored_exams(username, request)
+
+        return Response(data=result)
