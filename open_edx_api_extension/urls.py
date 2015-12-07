@@ -12,4 +12,5 @@ urlpatterns = [
     url(r'^user_proctored_exams/(?P<username>\w+)/$',
         views.ProctoredExamsListView.as_view(), name='user_proctored_exams'),
     url(r'^libraries/$', views.LibrariesList.as_view()),
+    url(r'^paid_mass_enrollment$', views.PaidMassEnrollment.as_view()),
 ]
