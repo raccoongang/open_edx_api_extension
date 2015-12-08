@@ -461,6 +461,7 @@ class ProctoredExamsListView(APIView):
     """
     authentication_classes = (SessionAuthenticationAllowInactiveUser,
                               OAuth2AuthenticationAllowInactiveUser)
+    permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
 
     def get(self, request, username):
         result = get_user_proctored_exams(username, request)
