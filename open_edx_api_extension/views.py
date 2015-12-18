@@ -5,7 +5,6 @@ from django.db import transaction
 from django.utils.decorators import method_decorator
 
 from rest_framework.generics import RetrieveAPIView, ListAPIView
-from django.conf import settings
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -24,13 +23,16 @@ from opaque_keys import InvalidKeyError
 from student.models import User, CourseEnrollment
 from xmodule.modulestore.django import modulestore
 
+from openedx.core.djangoapps.course_groups.cohorts import (is_course_cohorted, is_cohort_exists, add_cohort,
+                                                           get_cohort_by_name)
+from openedx.core.djangoapps.course_groups.models import CourseUserGroup
 from openedx.core.djangoapps.user_api.preferences.api import update_email_opt_in
 from openedx.core.lib.api.authentication import (
     SessionAuthenticationAllowInactiveUser,
     OAuth2AuthenticationAllowInactiveUser,
 )
 from openedx.core.lib.api.serializers import PaginationSerializer
-from openedx.core.lib.api.permissions import ApiKeyHeaderPermission, ApiKeyHeaderPermissionIsAuthenticated
+from openedx.core.lib.api.permissions import ApiKeyHeaderPermissionIsAuthenticated
 
 from enrollment import api
 from enrollment.errors import (
@@ -39,12 +41,13 @@ from enrollment.errors import (
 )
 from enrollment.views import ApiKeyPermissionMixIn, EnrollmentCrossDomainSessionAuth, EnrollmentListView
 
-from .data import get_course_enrollments
+from eventtracking import tracker
 
 from open_edx_api_extension.serializers import CourseWithExamsSerializer
 from .data import get_course_enrollments, get_user_proctored_exams
 
 log = logging.getLogger(__name__)
+VERIFIED = 'verified'
 
 
 class LibrariesList(ListAPIView):
@@ -337,13 +340,11 @@ class PaidMassEnrollment(APIView, ApiKeyPermissionMixIn):
             )
 
         try:
-            course_id = CourseKey.from_string(course_id)
+            course_key = CourseKey.from_string(course_id)
         except InvalidKeyError:
             return Response(
                 status=status.HTTP_400_BAD_REQUEST,
-                data={
-                    "message": u"No course '{course_id}' found for enrollment".format(course_id=course_id)
-                }
+                data={"message": u"No course '{course_id}' found for enrollment".format(course_id=course_id)}
             )
 
         # use verified course mode by default
@@ -365,7 +366,7 @@ class PaidMassEnrollment(APIView, ApiKeyPermissionMixIn):
             )
 
         for user in list_users:
-            embargo_response = embargo_api.get_embargo_response(request, course_id, user)
+            embargo_response = embargo_api.get_embargo_response(request, course_key, user)
 
             if embargo_response:
                 return embargo_response
@@ -377,9 +378,7 @@ class PaidMassEnrollment(APIView, ApiKeyPermissionMixIn):
             if is_active is not None and not isinstance(is_active, bool):
                 return Response(
                     status=status.HTTP_400_BAD_REQUEST,
-                    data={
-                        'message': (u"'{value}' is an invalid enrollment activation status.").format(value=is_active)
-                    }
+                    data={'message': u"'{value}' is an invalid enrollment activation status.".format(value=is_active)}
                 )
 
             enrollment_attributes = request.DATA.get('enrollment_attributes')
@@ -388,7 +387,7 @@ class PaidMassEnrollment(APIView, ApiKeyPermissionMixIn):
             not_enrolled = []  # list of not enrolled yet or unenrolled users
             for username in users:
                 current_username = username
-                enrollment = api.get_enrollment(username, unicode(course_id))
+                enrollment = api.get_enrollment(username, unicode(course_key))
                 if not enrollment:
                     not_enrolled.append(username)
                 elif enrollment['is_active'] is not True:
@@ -413,13 +412,46 @@ class PaidMassEnrollment(APIView, ApiKeyPermissionMixIn):
                     ),
                     })
 
+            # update for cohorts
+            cohort_exists = is_cohort_exists(course_key, VERIFIED)
+            if not cohort_exists:
+                cohort = add_cohort(course_key, VERIFIED, 'manual')
+            else:
+                cohort = get_cohort_by_name(course_key, VERIFIED)
+
             for username in users:
                 current_username = username
-                response = api.update_enrollment(username, unicode(course_id), mode=mode, is_active=is_active)
+                api.update_enrollment(username, unicode(course_key), mode=mode, is_active=is_active)
+                previous_cohort_name = None
+                previous_cohort_id = None
+                user = User.objects.get(username=username)
+                course_cohorts = CourseUserGroup.objects.filter(
+                    course_id=cohort.course_id,
+                    users__id=user.id,
+                    group_type=CourseUserGroup.COHORT
+                )
+                if course_cohorts.exists():
+                    if course_cohorts[0] != cohort:
+                        previous_cohort = course_cohorts[0]
+                        previous_cohort.users.remove(user)
+                        previous_cohort_name = previous_cohort.name
+                        previous_cohort_id = previous_cohort.id
+
+                tracker.emit(
+                    "edx.cohort.user_add_requested",
+                    {
+                        "user_id": user.id,
+                        "cohort_id": cohort.id,
+                        "cohort_name": cohort.name,
+                        "previous_cohort_id": previous_cohort_id,
+                        "previous_cohort_name": previous_cohort_name,
+                    }
+                )
+                cohort.users.add(user)
 
             email_opt_in = request.DATA.get('email_opt_in', None)
             if email_opt_in is not None:
-                org = course_id.org
+                org = course_key.org
                 for username in users:
                     update_email_opt_in(username, org, email_opt_in)
 
@@ -470,3 +502,130 @@ class ProctoredExamsListView(APIView):
         result = get_user_proctored_exams(username, request)
 
         return Response(data=result)
+
+
+class UpdateVerifiedCohort(APIView, ApiKeyPermissionMixIn):
+
+    authentication_classes = OAuth2AuthenticationAllowInactiveUser, EnrollmentCrossDomainSessionAuth
+    permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
+
+    def post(self, request):
+        username = request.DATA.get('username')
+        try:
+            user = User.objects.get(username=username)
+        except ObjectDoesNotExist:
+            return Response(
+                status=status.HTTP_400_BAD_REQUEST,
+                data={"message": u"User {username} does not exist".format(username=username)}
+            )
+
+        course_id = request.DATA.get('course_id')
+        if not course_id:
+            return Response(
+                status=status.HTTP_400_BAD_REQUEST,
+                data={"message": u"Course ID must be specified to create a new enrollment."}
+            )
+
+        try:
+            course_key = CourseKey.from_string(course_id)
+        except InvalidKeyError:
+            return Response(
+                status=status.HTTP_400_BAD_REQUEST,
+                data={
+                    "message": u"No course '{course_id}' found for enrollment".format(course_id=course_id)
+                }
+            )
+        course_is_cohorted = is_course_cohorted(course_key)
+        if not course_is_cohorted:
+            return Response(
+                status=status.HTTP_200_OK,
+                data={"message": u"Course {course_id} is not cohorted.".format(course_id=course_id)}
+            )
+        cohort_exists = is_cohort_exists(course_key, VERIFIED)
+        if not cohort_exists:
+            cohort = add_cohort(course_key, VERIFIED, 'manual')
+        else:
+            cohort = get_cohort_by_name(course_key, VERIFIED)
+
+        action = request.DATA.get('action')
+        if action not in [u'add', u'delete']:
+            return Response(
+                status=status.HTTP_400_BAD_REQUEST,
+                data={"message": u"Available actions are 'add' and 'delete'."}
+            )
+
+        enrollment = CourseEnrollment.objects.get(
+            user__username=username, course_id=course_key
+        )
+        if not enrollment or not enrollment.is_active:
+            return Response(
+                status=status.HTTP_400_BAD_REQUEST,
+                data={"message": u"User {username} not enrolled or unenrolled in course {course_id}.".format(
+                    username=username,
+                    course_id=course_id
+                )}
+            )
+
+        course_cohorts = CourseUserGroup.objects.filter(
+            course_id=course_key,
+            users__id=user.id,
+            group_type=CourseUserGroup.COHORT
+        )
+
+        # remove user from verified cohort
+        if action == u'delete':
+            if not course_cohorts.exists() or course_cohorts[0].name != cohort.name:
+                return Response(
+                    status=status.HTTP_200_OK,
+                    data={"message": u"User {username} already was removed from cohort {cohort_name}".format(
+                        username=username,
+                        cohort_name=cohort.name
+                    )}
+                )
+            else:
+                cohort.users.remove(user)
+                return Response(
+                    status=status.HTTP_200_OK,
+                    data={"message": u"User {username} removed from cohort {cohort_name}".format(
+                        username=username,
+                        cohort_name=cohort.name
+                    )}
+                )
+
+        # add user into verified cohort
+        previous_cohort_name = None
+        previous_cohort_id = None
+        if course_cohorts.exists():
+            if course_cohorts[0] == cohort:
+                return Response(
+                    status=status.HTTP_200_OK,
+                    data={"message": u"User {username} already present in cohort {cohort_name}".format(
+                        username=username,
+                        cohort_name=cohort.name
+                    )}
+                )
+            else:
+                previous_cohort = course_cohorts[0]
+                previous_cohort.users.remove(user)
+                previous_cohort_name = previous_cohort.name
+                previous_cohort_id = previous_cohort.id
+
+        tracker.emit(
+            "edx.cohort.user_add_requested",
+            {
+                "user_id": user.id,
+                "cohort_id": cohort.id,
+                "cohort_name": cohort.name,
+                "previous_cohort_id": previous_cohort_id,
+                "previous_cohort_name": previous_cohort_name,
+            }
+        )
+        cohort.users.add(user)
+        return Response(
+            status=status.HTTP_200_OK,
+            data={"message": u"User {username} added to cohort {cohort_name}".format(
+                username=user.username,
+                cohort_name=cohort.name
+            )}
+        )
+
