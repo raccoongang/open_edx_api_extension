@@ -505,6 +505,32 @@ class ProctoredExamsListView(APIView):
 
 
 class UpdateVerifiedCohort(APIView, ApiKeyPermissionMixIn):
+    """
+        **Use Cases**
+
+            1. Add user to verified cohort when updating enrollment to verified mode
+            2. Remove user from verified cohort when leaving verified mode
+
+        **Example Requests**:
+
+            POST /api/extended/update_verified_cohort{
+                "course_id": "course-v1:edX+DemoX+Demo_Course",
+                "username": "john_doe",
+                "action": "add"
+            }
+
+        **Post Parameters**
+
+            * course_id: The unique identifier for the course.
+
+            * username: The unique user id in plp and edx
+
+            * action: add - add user into verified cohort, delete - remove user from verified cohort 
+
+        **Response Values**
+
+            200 - OK, 400 - Fail (with error message)
+    """
 
     authentication_classes = OAuth2AuthenticationAllowInactiveUser, EnrollmentCrossDomainSessionAuth
     permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
