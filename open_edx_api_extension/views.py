@@ -115,6 +115,12 @@ class CourseUserResult(CourseViewMixin, RetrieveAPIView):
             * grade:  A final letter grade.
 
             * totaled_scores: totaled scores, which is passed to the grader.
+                * earned: total correct graded.
+                * possible: total possible graded.
+                * graded: boolean.
+                * section: section name.
+                * module_id: module identify.
+                * weight: score weight (optional for grading by verticals)
 
             * percent: Contains a float value, which is the final percentage score for the student.
 
