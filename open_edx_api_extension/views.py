@@ -126,6 +126,7 @@ class CourseUserResult(CourseViewMixin, RetrieveAPIView):
                 * graded: boolean.
                 * section: section name.
                 * module_id: module identify.
+                * weight: score weight (optional for grading by verticals)
 
             * percent: Contains a float value, which is the final percentage score for the student.
 
