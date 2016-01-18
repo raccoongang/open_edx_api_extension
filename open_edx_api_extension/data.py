@@ -2,6 +2,11 @@ from django.core.urlresolvers import reverse
 from edx_proctoring.api import get_all_exams_for_course
 from student.models import CourseEnrollment
 from enrollment.serializers import CourseEnrollmentSerializer
+from openedx.core.djangoapps.course_groups.models import CourseUserGroup
+from opaque_keys.edx.keys import CourseKey
+
+
+VERIFIED = 'verified'
 
 
 def get_course_enrollments(user_id=None, **kwargs):
@@ -27,7 +32,15 @@ def get_user_proctored_exams(username, request):
     for enrolment in enrolments:
         course = enrolment.course
         course_id = str(course.id)
-        if course_id not in result:
+
+        cohorts = CourseUserGroup.objects.filter(
+            course_id=enrolment.course_id,
+            users__username=username,
+            group_type=CourseUserGroup.COHORT,
+            name=VERIFIED
+        )
+
+        if course_id not in result and cohorts.exists():
             result[course_id] = {
                 "id": course_id,
                 "name": course.display_name,
