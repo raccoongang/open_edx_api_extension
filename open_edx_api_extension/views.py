@@ -35,12 +35,14 @@ from openedx.core.lib.api.authentication import (
     SessionAuthenticationAllowInactiveUser,
     OAuth2AuthenticationAllowInactiveUser,
 )
-from openedx.core.lib.api.serializers import PaginationSerializer
+#from openedx.core.lib.api.serializers import PaginationSerializer
 from openedx.core.lib.api.permissions import ApiKeyHeaderPermission, ApiKeyHeaderPermissionIsAuthenticated
 
 from enrollment import api
+
+from openedx.core.lib.exceptions import CourseNotFoundError
 from enrollment.errors import (
-    CourseNotFoundError, CourseEnrollmentError,
+    CourseEnrollmentError,
     CourseModeNotFoundError, CourseEnrollmentExistsError
 )
 from enrollment.views import ApiKeyPermissionMixIn, EnrollmentCrossDomainSessionAuth, EnrollmentListView
@@ -168,7 +170,7 @@ class CourseListMixin(object):
     lookup_field = 'course_id'
     paginate_by = 10000
     paginate_by_param = 'page_size'
-    pagination_serializer_class = PaginationSerializer
+    #pagination_serializer_class = PaginationSerializer
     serializer_class = serializers.CourseSerializer
     # Using EDX_API_KEY for access to this api
     authentication_classes = (SessionAuthenticationAllowInactiveUser,
@@ -176,7 +178,7 @@ class CourseListMixin(object):
     permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
 
     def get_queryset(self):
-        course_ids = self.request.QUERY_PARAMS.get('course_id', None)
+        course_ids = self.request.query_params.get('course_id', None)
 
         results = []
         if course_ids:
@@ -325,7 +327,7 @@ class PaidMassEnrollment(APIView, ApiKeyPermissionMixIn):
     authentication_classes = OAuth2AuthenticationAllowInactiveUser, EnrollmentCrossDomainSessionAuth
     permission_classes = ApiKeyHeaderPermissionIsAuthenticated,
 
-    @transaction.commit_on_success
+    #@transaction.commit_on_success
     def post(self, request):
         """
         Enrolls the list of users in a verified course mode.
