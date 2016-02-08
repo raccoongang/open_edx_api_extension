@@ -18,11 +18,6 @@ from courseware import courses
 
 from embargo import api as embargo_api
 from instructor.offline_gradecalc import student_grades
-
-from student.models import CourseEnrollment
-from openedx.core.lib.api.serializers import PaginationSerializer
-from rest_framework.generics import ListAPIView
-from rest_framework.views import APIView
 from course_structure_api.v0 import serializers
 
 from opaque_keys.edx.keys import CourseKey
